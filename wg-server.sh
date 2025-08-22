@@ -1,184 +1,154 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-# Display usage instructions if --help flag is used
-if [ "$1" = "--help" ]; then
-    echo "Usage:"
-    echo "Without arguments, will create a new server configuration if there isn't one."
-    echo "$(basename "$0") add/remove <peer name>"
-    exit 1
-fi
+display_usage() {
+    cat <<EOF
+Usage:
+  $(basename "$0")                # Initialize new server config if missing
+  $(basename "$0") add <peer>     # Add a WireGuard peer with name <peer>
+  $(basename "$0") remove <peer>  # Remove a WireGuard peer with name <peer>
+  $(basename "$0") --help         # Show this help message
+EOF
+}
 
-# Require root privileges to make WireGuard configuration changes
-if ! [ "$(id -u)" = "0" ]; then
-    echo "ERROR: root is required to configure WireGuard"
-    exit 1
-fi
+err() { echo "ERROR: $*" >&2; exit 1; }
 
-# Check if wireguard-tools is installed
-if ! which wg &>/dev/null; then
-    echo "ERROR: wg command does not exist, please install wireguard-tools"
-    exit 1
-fi
+require_root() {
+    [ "$(id -u)" = "0" ] || err "root is required to configure WireGuard"
+}
+
+require_cmd() {
+    command -v "$1" &>/dev/null || err "'$1' command not found, please install it."
+}
+
+# ---- MAIN ----
 
 wg_iface="wg0"
+config_file="/etc/wireguard/${wg_iface}.conf"
+server_dir="/etc/wireguard/server"
+clients_dir="/etc/wireguard/clients"
 
-# --- Server Initialization ---
-if [ ! -f /etc/wireguard/$wg_iface.conf ]; then
-    # Secure the /etc/wireguard directory and create necessary subdirectories
-    chmod 700 /etc/wireguard/
-    mkdir -p /etc/wireguard/server/
-    mkdir /etc/wireguard/clients/
+if [[ "${1:-}" == "--help" ]]; then
+    display_usage
+    exit 0
+fi
 
-    # Save the server's public IP to a file for use in client configs
-    curl https://api.ipify.org >/etc/wireguard/server/ipextern
+require_root
+require_cmd wg
 
-    # Generate and store the server's private key
-    wg genkey | tee /etc/wireguard/server/server.key
-    server_privkey=$(<"/etc/wireguard/server/server.key")
+if [ ! -f "$config_file" ]; then
+    # --- Server Initialization ---
+    install -d -m 700 /etc/wireguard
+    install -d -m 700 "$server_dir" "$clients_dir"
 
-    # Write the initial WireGuard server configuration
-cat >>/etc/wireguard/$wg_iface.conf <<-EOM
+    curl -fsSL https://api.ipify.org >"$server_dir/ipextern" || err "Failed to fetch public IP"
+
+    wg genkey | tee "$server_dir/server.key" >/dev/null
+    server_privkey=$(<"$server_dir/server.key")
+
+    cat >"$config_file" <<EOM
 [Interface]
-# Wireguard interface will be run at 10.1.0.0
+# WireGuard interface will be run at 10.1.0.0
 Address = 10.1.0.0/24
-
-# Wireguard Server private key - server.key
 PrivateKey = $server_privkey
-
-# Clients will connect to UDP port 51820
 ListenPort = 51820
 
 EOM
 
-    # Enable and start the WireGuard service if systemctl is present
-    if which systemctl &>/dev/null; then
-        systemctl enable --now wg-quick@$wg_iface
+    if command -v systemctl &>/dev/null; then
+        systemctl enable --now "wg-quick@$wg_iface"
     fi
 
-    # Open UDP port 51820 in the firewall if firewalld is present
-    if which firewall-cmd &>/dev/null; then
+    if command -v firewall-cmd &>/dev/null; then
         firewall-cmd --permanent --add-port=51820/udp --zone=public
         firewall-cmd --reload
     fi
 
-else
+    echo "WireGuard server initialized at $config_file"
+    exit 0
+fi
 
-    # --- Peer Management (add/remove) ---
+# --- Peer Management ---
 
-    # If no argument is given, only notify that config exists
-    if [ -z "$1" ]; then
-        echo "/etc/wireguard/$wg_iface.conf already exists."
-        exit 1
-    fi
+if [ $# -eq 0 ]; then
+    echo "$config_file already exists."
+    exit 0
+fi
 
-    # --- Add Peer ---
-    if [ "$1" = "add" ]; then
-        name="$2"
-        # Ensure a peer name is specified
-        if [ -z "$name" ]; then
-            echo "ERROR: User name is mandatory."
-            exit 1
-        fi
+cmd="$1"
+name="${2:-}"
 
-        # Prevent duplicate peer names
-        if grep -q "# $name" "/etc/wireguard/$wg_iface.conf"; then
-            echo "ERROR: User $name already exists"
-            exit 1
-        fi
+case "$cmd" in
 
-        # Refresh the server's public IP in case it changed
-        curl https://api.ipify.org >/etc/wireguard/server/ipextern
+add)
+    [[ -n "$name" ]] || err "User name is mandatory."
+    grep -q "^# $name\$" "$config_file" && err "User $name already exists"
 
-        # --- Server & Client Parameters ---
-        config_file="/etc/wireguard/$wg_iface.conf"
-        server_ip=$(<"/etc/wireguard/server/ipextern")
-        server_port="51820"
-        ipv4_prefix="10.1.0."
-        ipv4_mask="32"
+    curl -fsSL https://api.ipify.org >"$server_dir/ipextern" || err "Failed to fetch public IP"
+    server_ip=$(<"$server_dir/ipextern")
+    server_port=51820
+    ipv4_prefix="10.1.0."
+    ipv4_mask="32"
 
-        # Generate server public key from stored private key
-        server_privkey=$(<"/etc/wireguard/server/server.key")
-        server_pubkey=$(echo -n "$server_privkey" | wg pubkey)
+    server_privkey=$(<"$server_dir/server.key")
+    server_pubkey=$(echo -n "$server_privkey" | wg pubkey)
 
-        # Generate client keypair
-        client_privkey=$(wg genkey)
-        client_pubkey=$(echo -n "$client_privkey" | wg pubkey)
+    client_privkey=$(wg genkey)
+    client_pubkey=$(echo -n "$client_privkey" | wg pubkey)
 
-        # Find the first available IPv4 address for the client
-        client_number=1
-        while [ $client_number -lt 256 ]; do
-            client_ipv4="$ipv4_prefix$client_number/$ipv4_mask"
-            if grep -q "$client_ipv4" "$config_file"; then
-                # IP already in use; try the next one
-                ((client_number++))
-            else
-                # Add new peer to the server config
-                cat >>$config_file <<-EOM
+    # Find available IPv4 for peer
+    for client_number in $(seq 1 255); do
+        client_ipv4="${ipv4_prefix}${client_number}/${ipv4_mask}"
+        grep -q "$client_ipv4" "$config_file" && continue
 
-# $name
-[Peer]
-PublicKey = $client_pubkey
-AllowedIPs = $client_ipv4
-EOM
+        {
+            echo
+            echo "# $name"
+            echo "[Peer]"
+            echo "PublicKey = $client_pubkey"
+            echo "AllowedIPs = $client_ipv4"
+        } >>"$config_file"
 
-                server_number="0"
-                # Generate client configuration file
-                cat >>/etc/wireguard/clients/$name.conf <<-EOM
+        cat >"$clients_dir/$name.conf" <<EOM
 [Interface]
 PrivateKey = $client_privkey
 Address = $client_ipv4
 
 [Peer]
 PublicKey = $server_pubkey
-AllowedIPs = $ipv4_prefix$server_number/$ipv4_mask
+AllowedIPs = ${ipv4_prefix}0/$ipv4_mask
 Endpoint = $server_ip:$server_port
 EOM
 
-                # Reload WireGuard configuration without restarting the interface
-                wg syncconf $wg_iface <(wg-quick strip $wg_iface)
+        wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
 
-                # Output the client configuration for user to copy
-                echo "########## START CONFIG ##########
-"
-                cat /etc/wireguard/clients/$name.conf
-                echo "
-########### END CONFIG ###########"
-                break
-            fi
-        done
+        echo "########## START CONFIG ##########"
+        cat "$clients_dir/$name.conf"
+        echo "########### END CONFIG ###########"
+        exit 0
+    done
 
-        # If all IPs are taken, report an error
-        if [ "$client_number" -gt 255 ]; then
-            echo "ERROR: No available IPv4 address"
-        fi
+    err "No available IPv4 address"
+    ;;
+
+remove)
+    [[ -n "$name" ]] || err "User name is mandatory."
+
+    if grep -q "^# $name\$" "$config_file"; then
+        rm -f "$clients_dir/$name.conf"
+        # Remove peer block (from comment line to next blank line or EOF)
+        sed -i "/^# $name\$/,/^$/d" "$config_file"
+        wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
+        echo "User $name removed."
+        exit 0
+    else
+        err "User $name does not exist."
     fi
+    ;;
 
-    # --- Remove Peer ---
-    if [ "$1" = "remove" ]; then
-        name="$2"
-        # Ensure a peer name is specified
-        if [ -z "$name" ]; then
-            echo "ERROR: User name is mandatory."
-            exit 1
-        fi
+*)
+    err "Unknown command '$cmd'. Use 'add' or 'remove'."
+    ;;
 
-        # Remove peer from server and delete client config if it exists
-        if grep -q "$name" "/etc/wireguard/$wg_iface.conf"; then
-            rm /etc/wireguard/clients/$name.conf
-            # Remove the peer block from the server config
-            sed -i "/^# $name/,/^$/d" /etc/wireguard/$wg_iface.conf
-            # Reload WireGuard configuration
-            wg syncconf $wg_iface <(wg-quick strip $wg_iface)
-        else
-            echo "ERROR: User $name does not exist."
-        fi
-    fi
-
-    # --- Unknown Command Handler ---
-    if [ "$1" != "add" ] && [ "$1" != "remove" ]; then
-        echo "ERROR: Unknown command $1, please use 'add' or 'remove'."
-    fi
-
-fi
+esac
