@@ -67,9 +67,9 @@ if [ ! -f "$config_file" ]; then
     server_ip=$(<"$server_dir/ipextern")
 
     # Generate server private key
-    wg genkey | tee "$server_dir/server.key" >/dev/null
+    wg genkey > "$server_dir/server.key"
     server_privkey=$(<"$server_dir/server.key")
-
+    echo -n "$server_privkey" | wg pubkey > "$server_dir/server.pub"
     # Write the server WireGuard config file
     {
         echo "[Interface]"
@@ -124,7 +124,7 @@ add)
 
     # Get server keys
     server_privkey=$(<"$server_dir/server.key")
-    server_pubkey=$(echo -n "$server_privkey" | wg pubkey)
+    server_pubkey=$(<"$server_dir/server.pub")
 
     # Generate client keys
     client_privkey=$(wg genkey)
