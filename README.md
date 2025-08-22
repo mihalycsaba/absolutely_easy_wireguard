@@ -1,11 +1,26 @@
 # Absolutely easy wireguard
 
-A straightforward and simple bash script to set up and start a WireGuard server. This will allow you to access your server and only your server through wg. It can add and remove peers without needing to restart the wg interface. Generates a minimalist config no DNS, no pre-shared key and only ipv4.
+A straightforward bash script to configure and manage a WireGuard server interface. Configures a point-to-point VPN tunnel, restricting peer access solely to the server. Peers cannot communicate with each other or use the server as a gateway for other traffic.
 
-Requires `wireguard-tools`
+## Features
+- Configures the WireGuard interface with client isolation (no peer-to-peer access)
+- Direct server access only (no internet routing or subnet routing)
+- Dynamic peer management without WireGuard interface restart
+- Minimalist configuration (IPv4 only, no DNS, no pre-shared keys)
+- Automatic server configuration generation
+
+## Requirements
+- wireguard-tools
+- firewalld(ufw will be added)
 
 ## Usage
+Without arguments, creates a new server configuration if none exists and brings up the WireGuard interface:
+```bash
+./wg-server.sh
+```
 
-Without arguments, will create a new server configuration if there isn't one already.
-
-`wg-server.sh add/remove peer_name`
+To manage peers:
+```bash
+./wg-server.sh add peer_name
+./wg-server.sh remove peer_name
+```
