@@ -28,3 +28,5 @@ To manage peers:
 ./wg-server.sh add peer_name
 ./wg-server.sh remove peer_name
 ```
+
+By default, the script uses 10.1.0.0 as the server address and 51820 as the listening port. You can edit these values at the beginning of the script.
