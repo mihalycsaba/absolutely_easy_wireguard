@@ -26,6 +26,11 @@ require_cmd() {
     command -v "$1" &>/dev/null || err "'$1' command not found, please install it."
 }
 
+# Get the server's public IP address
+get_public_ip() {
+    curl -fsSL [https://api.ipify.org](https://api.ipify.org) >"$server_dir/ipextern" || err "Failed to fetch public IP"
+}
+
 # ---- MAIN ----
 
 wg_iface="wg0"
@@ -54,7 +59,8 @@ if [ ! -f "$config_file" ]; then
     chmod -R 700 /etc/wireguard
 
     # Get the server's public IP address
-    curl -fsSL https://api.ipify.org >"$server_dir/ipextern" || err "Failed to fetch public IP"
+    get_public_ip
+    server_ip=$(<"$server_dir/ipextern")
 
     # Generate server private key
     wg genkey | tee "$server_dir/server.key" >/dev/null
@@ -97,7 +103,7 @@ if [ $# -eq 0 ]; then
 fi
 
 cmd="$1"
-name="${2:-}"
+name="$2"
 
 case "$cmd" in
 
@@ -107,7 +113,7 @@ add)
     grep -q "^# $name\$" "$config_file" && err "User $name already exists"
 
     # Get the server's public IP address
-    curl -fsSL https://api.ipify.org >"$server_dir/ipextern" || err "Failed to fetch public IP"
+    get_public_ip
     server_ip=$(<"$server_dir/ipextern")
     ipv4_prefix="10.1.0."
     ipv4_mask="32"
