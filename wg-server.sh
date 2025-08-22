@@ -2,6 +2,7 @@
 
 set -euo pipefail
 
+# Display usage information
 display_usage() {
     cat <<EOF
 Usage:
@@ -12,12 +13,15 @@ Usage:
 EOF
 }
 
+# Print error message and exit
 err() { echo "ERROR: $*" >&2; exit 1; }
 
+# Ensure the script is run as root
 require_root() {
     [ "$(id -u)" = "0" ] || err "root is required to configure WireGuard"
 }
 
+# Ensure a required command is available
 require_cmd() {
     command -v "$1" &>/dev/null || err "'$1' command not found, please install it."
 }
@@ -34,6 +38,7 @@ server_address="10.1.0.0/24"
 server_listen_port="51820"
 # -----------------------------
 
+# Show help if requested
 if [[ "${1:-}" == "--help" ]]; then
     display_usage
     exit 0
@@ -42,16 +47,20 @@ fi
 require_root
 require_cmd wg
 
+# --- Server Initialization ---
 if [ ! -f "$config_file" ]; then
-    # --- Server Initialization ---
-    install -d -m 700 /etc/wireguard
-    install -d -m 700 "$server_dir" "$clients_dir"
+    # Create necessary directories with secure permissions
+    mkdir -p "$server_dir" "$clients_dir"
+    chmod -R 700 /etc/wireguard
 
+    # Get the server's public IP address
     curl -fsSL https://api.ipify.org >"$server_dir/ipextern" || err "Failed to fetch public IP"
 
+    # Generate server private key
     wg genkey | tee "$server_dir/server.key" >/dev/null
     server_privkey=$(<"$server_dir/server.key")
 
+    # Write the server WireGuard config file
     {
         echo "[Interface]"
         echo "Address = $server_address"
@@ -60,10 +69,12 @@ if [ ! -f "$config_file" ]; then
         echo
     } >"$config_file"
 
+    # Enable and start the WireGuard service if systemd is available
     if command -v systemctl &>/dev/null; then
         systemctl enable --now "wg-quick@$wg_iface"
     fi
 
+    # Open the WireGuard port in the firewall (firewalld or ufw)
     if command -v firewall-cmd &>/dev/null; then
         firewall-cmd --permanent --add-port=${server_listen_port}/udp --zone=public
         firewall-cmd --reload
@@ -79,6 +90,7 @@ fi
 
 # --- Peer Management ---
 
+# If no arguments, just report config exists
 if [ $# -eq 0 ]; then
     echo "$config_file already exists."
     exit 0
@@ -90,25 +102,30 @@ name="${2:-}"
 case "$cmd" in
 
 add)
+    # Add a new peer
     [[ -n "$name" ]] || err "User name is mandatory."
     grep -q "^# $name\$" "$config_file" && err "User $name already exists"
 
+    # Get the server's public IP address
     curl -fsSL https://api.ipify.org >"$server_dir/ipextern" || err "Failed to fetch public IP"
     server_ip=$(<"$server_dir/ipextern")
     ipv4_prefix="10.1.0."
     ipv4_mask="32"
 
+    # Get server keys
     server_privkey=$(<"$server_dir/server.key")
     server_pubkey=$(echo -n "$server_privkey" | wg pubkey)
 
+    # Generate client keys
     client_privkey=$(wg genkey)
     client_pubkey=$(echo -n "$client_privkey" | wg pubkey)
 
-    # Find available IPv4 for peer
+    # Find an available IPv4 address for the new peer
     for client_number in $(seq 1 255); do
         client_ipv4="${ipv4_prefix}${client_number}/${ipv4_mask}"
         grep -q "$client_ipv4" "$config_file" && continue
 
+        # Add peer to server config
         {
             echo
             echo "# $name"
@@ -117,6 +134,7 @@ add)
             echo "AllowedIPs = $client_ipv4"
         } >>"$config_file"
 
+        # Generate client config file
         {
             echo "[Interface]"
             echo "PrivateKey = $client_privkey"
@@ -128,8 +146,10 @@ add)
             echo "Endpoint = $server_ip:$server_listen_port"
         } >"$clients_dir/$name.conf"
 
+        # Apply the new configuration
         wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
 
+        # Output the client config
         echo "########## START CONFIG ##########"
         cat "$clients_dir/$name.conf"
         echo "########### END CONFIG ###########"
@@ -140,6 +160,7 @@ add)
     ;;
 
 remove)
+    # Remove a peer
     [[ -n "$name" ]] || err "User name is mandatory."
 
     if grep -q "^# $name\$" "$config_file"; then
@@ -155,6 +176,7 @@ remove)
     ;;
 
 *)
+    # Unknown command
     err "Unknown command '$cmd'. Use 'add' or 'remove'."
     ;;
 
