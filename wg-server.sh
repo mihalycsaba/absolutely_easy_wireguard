@@ -67,6 +67,10 @@ if [ ! -f "$config_file" ]; then
     if command -v firewall-cmd &>/dev/null; then
         firewall-cmd --permanent --add-port=${server_listen_port}/udp --zone=public
         firewall-cmd --reload
+    elif command -v ufw &>/dev/null; then
+        ufw allow ${server_listen_port}/udp
+    else
+        echo "Warning: Neither firewalld nor ufw found. Please ensure UDP port ${server_listen_port} is open." >&2
     fi
 
     echo "WireGuard server initialized at $config_file"
