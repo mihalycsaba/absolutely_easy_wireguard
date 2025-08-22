@@ -29,6 +29,11 @@ config_file="/etc/wireguard/${wg_iface}.conf"
 server_dir="/etc/wireguard/server"
 clients_dir="/etc/wireguard/clients"
 
+# --- Customizable variables ---
+server_address="10.1.0.0/24"
+server_listen_port="51820"
+# -----------------------------
+
 if [[ "${1:-}" == "--help" ]]; then
     display_usage
     exit 0
@@ -47,21 +52,20 @@ if [ ! -f "$config_file" ]; then
     wg genkey | tee "$server_dir/server.key" >/dev/null
     server_privkey=$(<"$server_dir/server.key")
 
-    cat >"$config_file" <<EOM
-[Interface]
-# WireGuard interface will be run at 10.1.0.0
-Address = 10.1.0.0/24
-PrivateKey = $server_privkey
-ListenPort = 51820
-
-EOM
+    {
+        echo "[Interface]"
+        echo "Address = $server_address"
+        echo "PrivateKey = $server_privkey"
+        echo "ListenPort = $server_listen_port"
+        echo
+    } >"$config_file"
 
     if command -v systemctl &>/dev/null; then
         systemctl enable --now "wg-quick@$wg_iface"
     fi
 
     if command -v firewall-cmd &>/dev/null; then
-        firewall-cmd --permanent --add-port=51820/udp --zone=public
+        firewall-cmd --permanent --add-port=${server_listen_port}/udp --zone=public
         firewall-cmd --reload
     fi
 
@@ -87,7 +91,6 @@ add)
 
     curl -fsSL https://api.ipify.org >"$server_dir/ipextern" || err "Failed to fetch public IP"
     server_ip=$(<"$server_dir/ipextern")
-    server_port=51820
     ipv4_prefix="10.1.0."
     ipv4_mask="32"
 
@@ -110,16 +113,16 @@ add)
             echo "AllowedIPs = $client_ipv4"
         } >>"$config_file"
 
-        cat >"$clients_dir/$name.conf" <<EOM
-[Interface]
-PrivateKey = $client_privkey
-Address = $client_ipv4
-
-[Peer]
-PublicKey = $server_pubkey
-AllowedIPs = ${ipv4_prefix}0/$ipv4_mask
-Endpoint = $server_ip:$server_port
-EOM
+        {
+            echo "[Interface]"
+            echo "PrivateKey = $client_privkey"
+            echo "Address = $client_ipv4"
+            echo
+            echo "[Peer]"
+            echo "PublicKey = $server_pubkey"
+            echo "AllowedIPs = ${ipv4_prefix}0/$ipv4_mask"
+            echo "Endpoint = $server_ip:$server_listen_port"
+        } >"$clients_dir/$name.conf"
 
         wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
 
