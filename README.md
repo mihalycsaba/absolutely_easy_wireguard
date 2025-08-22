@@ -1,6 +1,6 @@
 # Absolutely easy wireguard
 
-A straightforward and simple bash script to set up and start a WireGuard server, capable of adding and removing peers without needing to restart the WireGuard interface.Generates a minimalist config no DNS, no pre-shared key and only ipv4.
+A straightforward and simple bash script to set up and start a WireGuard server, capable of adding and removing peers without needing to restart the WireGuard interface. Generates a minimalist config no DNS, no pre-shared key and only ipv4.
 
 Requires `wireguard-tools`
 
