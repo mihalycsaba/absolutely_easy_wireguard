@@ -10,8 +10,7 @@ A straightforward bash script to configure and manage a WireGuard server interfa
 - Automatic server configuration generation
 
 ## Requirements
-- wireguard-tools
-- firewalld(ufw will be added)
+- `wireguard-tools`
 
 ## Usage
 Without arguments, creates a new server configuration if none exists and brings up the WireGuard interface:
