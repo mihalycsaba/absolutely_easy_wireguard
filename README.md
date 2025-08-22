@@ -7,7 +7,7 @@ A simple bash script to configure and manage a WireGuard server interface. Confi
 - Direct server access only (no internet routing or subnet routing)
 - Dynamic peer management without WireGuard interface restart
 - Minimalist configuration (IPv4 only, no DNS, no pre-shared keys)
-- Automatic server configuration generation
+- Automatic interface config generation
 
 ## Requirements
 - `wireguard-tools`
