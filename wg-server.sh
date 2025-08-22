@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+# --- Customizable variables ---
+server_address="10.1.0.0/24"
+server_listen_port="51820"
+# -----------------------------
+
 # Display usage information
 display_usage() {
     cat <<EOF
@@ -28,7 +33,11 @@ require_cmd() {
 
 # Get the server's public IP address
 get_public_ip() {
-    curl -fsSL [https://api.ipify.org](https://api.ipify.org) >"$server_dir/ipextern" || err "Failed to fetch public IP"
+    if ! curl -fsSL https://api.ipify.org >"$server_dir/ipextern"; then
+        if [ ! -f "$server_dir/ipextern" ]; then
+            err "Failed to get public IP"
+        fi
+    fi
 }
 
 # ---- MAIN ----
@@ -37,11 +46,6 @@ wg_iface="wg0"
 config_file="/etc/wireguard/${wg_iface}.conf"
 server_dir="/etc/wireguard/server"
 clients_dir="/etc/wireguard/clients"
-
-# --- Customizable variables ---
-server_address="10.1.0.0/24"
-server_listen_port="51820"
-# -----------------------------
 
 # Show help if requested
 if [[ "${1:-}" == "--help" ]]; then
@@ -162,7 +166,7 @@ add)
         exit 0
     done
 
-    err "No available IPv4 address"
+    err "No available peerIP address"
     ;;
 
 remove)
