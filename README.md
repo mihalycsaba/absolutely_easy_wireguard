@@ -1,6 +1,6 @@
 # Absolutely easy wireguard
 
-A straightforward bash script to configure and manage a WireGuard server interface. Configures a point-to-point VPN tunnel, restricting peer access solely to the server. Peers cannot communicate with each other or use the server as a gateway for other traffic.
+A simple bash script to configure and manage a WireGuard server interface. Configures a point-to-point VPN tunnel, restricting peer access solely to the server. Peers cannot communicate with each other or use the server as a gateway for other traffic.
 
 ## Features
 - Configures the WireGuard interface with client isolation (no peer-to-peer access)
