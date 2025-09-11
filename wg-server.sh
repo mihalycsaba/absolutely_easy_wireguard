@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Copyright (c) 2025 Mihaly Csaba
+# 
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 set -euo pipefail
 
 # --- Customizable variables ---
