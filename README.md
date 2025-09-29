@@ -38,17 +38,17 @@ Remove a peer:
 sudo ./wg-server.sh -r <peer_name>
 ```
 
+List all peers:
+
+```bash
+sudo ./wg-server.sh -l
+```
+
 Show help:
 
 ```bash
 ./wg-server.sh -h
 ```
-
-### Command-Line Options
-
-- `-a <peer>`: Add a WireGuard peer with name `<peer>`
-- `-r <peer>`: Remove a WireGuard peer with name `<peer>`
-- `-h`: Show help message
 
 ## Configuration
 

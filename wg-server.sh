@@ -16,13 +16,14 @@ server_ip=""
 
 # Display usage information
 display_usage() {
-    cat <<EOF
+        cat <<EOF
 Usage:
-  $0 [-a peer] [-r peer] [-h]
+    $0 [-a peer] [-r peer] [-l] [-h]
 Options:
-  -a <peer>   Add a WireGuard peer with name <peer>
-  -r <peer>   Remove a WireGuard peer with name <peer>
-  -h          Show this help message
+    -a <peer>   Add a WireGuard peer with name <peer>
+    -r <peer>   Remove a WireGuard peer with name <peer>
+    -l          List all WireGuard peers
+    -h          Show this help message
 EOF
 }
 
@@ -70,6 +71,10 @@ require_cmd wg
 add_peer() {
     local name="$1"
     [[ -n "$name" ]] || err "User name is mandatory."
+    # Only allow letters, numbers, underscores, and dashes
+    if ! echo "$name" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+        err "Peer name may only contain letters, numbers, dash, and underscore."
+    fi
     grep -q "^# $name\$" "$config_file" && err "User $name already exists"
 
     # Get the server's public IP address
@@ -131,7 +136,6 @@ add_peer() {
 remove_peer() {
     local name="$1"
     [[ -n "$name" ]] || err "User name is mandatory."
-
     if grep -q "^# $name\$" "$config_file"; then
         rm -f "$clients_dir/$name.conf"
         # Remove peer block (from comment line to next blank line or EOF)
@@ -145,13 +149,29 @@ remove_peer() {
 }
 
 # Parse options
-while getopts ":a:r:h" opt; do
+# Parse options
+
+list_peers() {
+    if [ ! -f "$config_file" ]; then
+        echo "No config file found: $config_file"
+        exit 1
+    fi
+    echo "Configured peers:"
+    # List lines starting with '# ' (peer name comments)
+    grep '^# ' "$config_file" | sed 's/^# //'
+}
+
+while getopts ":a:r:lh" opt; do
     case $opt in
         a)
             add_peer "$OPTARG"
             ;;
         r)
             remove_peer "$OPTARG"
+            ;;
+        l)
+            list_peers
+            exit 0
             ;;
         h)
             display_usage
