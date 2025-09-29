@@ -76,9 +76,7 @@ reload_wg_config() {
         wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
         echo "WireGuard config reloaded."
     else
-        systemctl stop "wg-quick@$wg_iface"
-        systemctl disable "wg-quick@$wg_iface"
-        echo "No config file found to reload. Stopped and disabled interface."
+        echo "No config file found to reload."
     fi
 }
 
@@ -221,7 +219,7 @@ if [ $OPTIND -eq 1 ]; then
         # Write the server WireGuard config file
         {
             echo "[Interface]"
-            echo "Address = $wg_address"
+            echo "Address = $wg_address/$ipv4_mask"
             echo "PrivateKey = $server_privkey"
             echo "ListenPort = $wg_listen_port"
             echo
