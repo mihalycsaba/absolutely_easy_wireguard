@@ -8,8 +8,8 @@
 set -euo pipefail
 
 # --- Customizable variables ---
-server_address="10.1.0.0/24"
-server_listen_port="51820"
+wg_address="10.1.0.0"
+wg_listen_port="51820"
 wg_iface="wg0"
 server_ip=""
 # -----------------------------
@@ -21,7 +21,8 @@ Usage:
     $0 [-a peer] [-r peer] [-l] [-h]
 Options:
     -a <peer>   Add a WireGuard peer with name <peer>
-    -r <peer>   Remove a WireGuard peer with name <peer>
+    -d <peer>   Delete a WireGuard peer with name <peer>
+    -r          Reload WireGuard configuration
     -l          List all WireGuard peers
     -h          Show this help message
 EOF
@@ -58,6 +59,7 @@ get_public_ip() {
 config_file="/etc/wireguard/${wg_iface}.conf"
 server_dir="/etc/wireguard/server"
 clients_dir="/etc/wireguard/clients"
+ipv4_mask="32"
 
 # Show help if requested
 if [[ "${1:-}" == "--help" ]]; then
@@ -67,6 +69,10 @@ fi
 
 require_root
 require_cmd wg
+
+reload_wg_config() {
+    wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
+}
 
 add_peer() {
     local name="$1"
@@ -79,12 +85,9 @@ add_peer() {
 
     # Get the server's public IP address
     get_public_ip
-    # Extract IPv4 prefix and mask from server_address
-    local base_addr
-    base_addr="${server_address%%/*}"
-    local ipv4_prefix ipv4_mask
-    ipv4_prefix="${base_addr%.*}."
-    ipv4_mask="${server_address##*/}"
+
+    local ipv4_prefix
+    ipv4_prefix="${wg_address%.*}."
 
     # Get server keys
     server_privkey=$(<"$server_dir/server.key")
@@ -116,12 +119,12 @@ add_peer() {
             echo
             echo "[Peer]"
             echo "PublicKey = $server_pubkey"
-            echo "AllowedIPs = ${ipv4_prefix}0/$ipv4_mask"
-            echo "Endpoint = $server_ip:$server_listen_port"
+            echo "AllowedIPs = ${wg_address}/$ipv4_mask"
+            echo "Endpoint = $server_ip:$wg_listen_port"
         } >"$clients_dir/$name.conf"
 
-        # Apply the new configuration
-        wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
+    # Apply the new configuration
+    reload_wg_config
 
         # Output the client config
         echo "########## START CONFIG ##########"
@@ -133,23 +136,20 @@ add_peer() {
     err "No available peerIP address"
 }
 
-remove_peer() {
+delete_peer() {
     local name="$1"
     [[ -n "$name" ]] || err "User name is mandatory."
     if grep -q "^# $name\$" "$config_file"; then
         rm -f "$clients_dir/$name.conf"
         # Remove peer block (from comment line to next blank line or EOF)
         sed -i "/^# $name\$/,/^$/d" "$config_file"
-        wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
+        reload_wg_config
         echo "User $name removed."
         exit 0
     else
         err "User $name does not exist."
     fi
 }
-
-# Parse options
-# Parse options
 
 list_peers() {
     if [ ! -f "$config_file" ]; then
@@ -161,13 +161,13 @@ list_peers() {
     grep '^# ' "$config_file" | sed 's/^# //'
 }
 
-while getopts ":a:r:lh" opt; do
+while getopts ":a:d:l:h:r" opt; do
     case $opt in
         a)
             add_peer "$OPTARG"
             ;;
-        r)
-            remove_peer "$OPTARG"
+        d)
+            delete_peer "$OPTARG"
             ;;
         l)
             list_peers
@@ -175,6 +175,11 @@ while getopts ":a:r:lh" opt; do
             ;;
         h)
             display_usage
+            exit 0
+            ;;
+        r)
+            reload_wg_config
+            echo "WireGuard config reloaded."
             exit 0
             ;;
         \?)
@@ -207,9 +212,9 @@ if [ $OPTIND -eq 1 ]; then
         # Write the server WireGuard config file
         {
             echo "[Interface]"
-            echo "Address = $server_address"
+            echo "Address = $wg_address"
             echo "PrivateKey = $server_privkey"
-            echo "ListenPort = $server_listen_port"
+            echo "ListenPort = $wg_listen_port"
             echo
         } >"$config_file"
 
@@ -220,12 +225,12 @@ if [ $OPTIND -eq 1 ]; then
 
         # Open the WireGuard port in the firewall (firewalld or ufw)
         if command -v firewall-cmd &>/dev/null; then
-            firewall-cmd --permanent --add-port=${server_listen_port}/udp --zone=public
+            firewall-cmd --permanent --add-port=${wg_listen_port}/udp --zone=public
             firewall-cmd --reload
         elif command -v ufw &>/dev/null; then
-            ufw allow ${server_listen_port}/udp
+            ufw allow ${wg_listen_port}/udp
         else
-            echo "Warning: Neither firewalld nor ufw found. Please ensure UDP port ${server_listen_port} is open." >&2
+            echo "Warning: Neither firewalld nor ufw found. Please ensure UDP port ${wg_listen_port} is open." >&2
         fi
 
         echo "WireGuard server initialized at $config_file"

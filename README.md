@@ -53,7 +53,7 @@ Show help:
 ## Configuration
 
 - By default, the server uses `10.1.0.0/24` as its subnet and listens on UDP port `51820`.
-- You can change these values by editing the `server_address` and `server_listen_port` variables at the top of `wg-server.sh`.
+- You can change these values by editing the `wg_address` and `wg_listen_port` variables at the top of `wg-server.sh`.
 - The server's public IP is automatically detected **only if** the `server_ip` variable is left empty. This logic is handled inside the `get_public_ip` function in the script.
 
 ## How it works
