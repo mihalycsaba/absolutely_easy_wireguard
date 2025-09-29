@@ -236,7 +236,8 @@ if [ $OPTIND -eq 1 ]; then
             echo "Warning: Neither firewalld nor ufw found. Please ensure UDP port ${wg_listen_port} is open." >&2
         fi
 
-        echo "WireGuard server initialized at $config_file"
+        reload_wg_config
+        echo "WireGuard server initialized from $config_file"
         exit 0
     else
         echo "$config_file already exists."
