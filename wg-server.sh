@@ -169,7 +169,7 @@ list_peers() {
     grep '^# ' "$config_file" | sed 's/^# //'
 }
 
-while getopts ":a:d:l:h:r" opt; do
+while getopts ":a:d:lhr" opt; do
     case $opt in
         a)
             add_peer "$OPTARG"
