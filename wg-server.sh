@@ -132,7 +132,9 @@ add_peer() {
 
         # Output the client config
         echo "########## START CONFIG ##########"
+        echo
         cat "$clients_dir/$name.conf"
+        echo
         echo "########### END CONFIG ###########"
         exit 0
     done
