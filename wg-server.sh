@@ -131,11 +131,11 @@ add_peer() {
     reload_wg_config
 
         # Output the client config
-        echo "########## START CONFIG ##########"
+        echo "########## START OF CONFIG ##########"
         echo
         cat "$clients_dir/$name.conf"
         echo
-        echo "########### END CONFIG ###########"
+        echo "########### END OF CONFIG ###########"
         exit 0
     done
 
