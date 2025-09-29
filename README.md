@@ -29,31 +29,39 @@ sudo ./wg-server.sh
 Add a peer:
 
 ```bash
-sudo ./wg-server.sh add <peer_name>
+sudo ./wg-server.sh -a <peer_name>
 ```
 
 Remove a peer:
 
 ```bash
-sudo ./wg-server.sh remove <peer_name>
+sudo ./wg-server.sh -r <peer_name>
 ```
 
 Show help:
 
 ```bash
-./wg-server.sh --help
+./wg-server.sh -h
 ```
+
+### Command-Line Options
+
+- `-a <peer>`: Add a WireGuard peer with name `<peer>`
+- `-r <peer>`: Remove a WireGuard peer with name `<peer>`
+- `-h`: Show help message
 
 ## Configuration
 
 - By default, the server uses `10.1.0.0/24` as its subnet and listens on UDP port `51820`.
 - You can change these values by editing the `server_address` and `server_listen_port` variables at the top of `wg-server.sh`.
+- The server's public IP is automatically detected **only if** the `server_ip` variable is left empty. This logic is handled inside the `get_public_ip` function in the script.
 
 ## How it works
 
 - Server and client keys are generated automatically and stored in `/etc/wireguard/server` and `/etc/wireguard/clients`.
 - Client configuration files are created in `/etc/wireguard/clients/<peer_name>.conf`.
 - The script uses the first available IP in the `10.1.0.0/24` subnet for each new peer.
+- The public IP detection only runs if `server_ip` is empty, so you can set a static IP by assigning a value to `server_ip` at the top of the script.
 - Peers are managed dynamically using `wg syncconf` and `wg-quick strip` for zero-downtime updates.
 
 ## Notes
