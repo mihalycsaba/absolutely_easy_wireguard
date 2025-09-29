@@ -38,7 +38,7 @@ Delete a peer:
 sudo ./wg-server.sh -d <peer_name>
 ```
 
-Reload config:
+Reload config or stop interface if there is no config file:
 
 ```bash
 sudo ./wg-server.sh -r <peer_name>

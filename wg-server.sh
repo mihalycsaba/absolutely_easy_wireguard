@@ -23,7 +23,7 @@ Options:
     If no options, initialize server
     -a <peer>   Add a WireGuard peer with name <peer>
     -d <peer>   Delete a WireGuard peer with name <peer>
-    -r          Reload WireGuard configuration
+    -r          Reload WireGuard configuration, stop the interface if no config file found
     -l          List all WireGuard peers
     -h          Show this help message
 EOF
