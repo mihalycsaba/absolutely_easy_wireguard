@@ -60,7 +60,7 @@ get_public_ip() {
 config_file="/etc/wireguard/${wg_iface}.conf"
 server_dir="/etc/wireguard/server"
 clients_dir="/etc/wireguard/clients"
-ipv4_mask="32"
+ipv4_mask="24"
 
 # Show help if requested
 if [[ "${1:-}" == "--help" ]]; then
@@ -92,8 +92,9 @@ add_peer() {
     # Get the server's public IP address
     get_public_ip
 
-    local ipv4_prefix
+    local ipv4_prefix ipv4_mask
     ipv4_prefix="${wg_address%.*}."
+    ipv4_mask="${wg_address##*/}"
 
     # Get server keys
     server_privkey=$(<"$server_dir/server.key")
