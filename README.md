@@ -32,7 +32,13 @@ Add a peer:
 sudo ./wg-server.sh -a <peer_name>
 ```
 
-Remove a peer:
+Delete a peer:
+
+```bash
+sudo ./wg-server.sh -d <peer_name>
+```
+
+Reload config:
 
 ```bash
 sudo ./wg-server.sh -r <peer_name>
