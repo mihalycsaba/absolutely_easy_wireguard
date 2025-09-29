@@ -175,7 +175,7 @@ if [ $OPTIND -eq 1 ]; then
     if [ ! -f "$config_file" ]; then
         # Create necessary directories with secure permissions
         mkdir -p "$server_dir" "$clients_dir"
-        chmod -R 700 /etc/wireguard
+        chmod -R 600 /etc/wireguard
 
         # Get the server's public IP address
         get_public_ip
