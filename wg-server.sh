@@ -20,6 +20,7 @@ display_usage() {
 Usage:
     $0 [-a peer] [-r peer] [-l] [-h]
 Options:
+    If no options, initialize server
     -a <peer>   Add a WireGuard peer with name <peer>
     -d <peer>   Delete a WireGuard peer with name <peer>
     -r          Reload WireGuard configuration
@@ -72,6 +73,9 @@ require_cmd wg
 
 reload_wg_config() {
     wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
+    if [ -f "config_file" ]; then
+        echo "WireGuard config reloaded."
+    fi
 }
 
 add_peer() {
@@ -179,7 +183,6 @@ while getopts ":a:d:l:h:r" opt; do
             ;;
         r)
             reload_wg_config
-            echo "WireGuard config reloaded."
             exit 0
             ;;
         \?)
@@ -195,7 +198,7 @@ while getopts ":a:d:l:h:r" opt; do
     esac
 done
 
-# If no options, initialize server if needed
+# If no options, initialize server
 if [ $OPTIND -eq 1 ]; then
     if [ ! -f "$config_file" ]; then
         # Create necessary directories with secure permissions
