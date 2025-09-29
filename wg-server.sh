@@ -72,7 +72,7 @@ require_root
 require_cmd wg
 
 reload_wg_config() {
-    if [ -f "config_file" ]; then
+    if [ -f "$config_file" ]; then
         wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
         echo "WireGuard config reloaded."
     else
