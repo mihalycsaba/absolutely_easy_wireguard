@@ -72,9 +72,12 @@ require_root
 require_cmd wg
 
 reload_wg_config() {
-    wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
     if [ -f "config_file" ]; then
+        wg syncconf "$wg_iface" <(wg-quick strip "$wg_iface")
         echo "WireGuard config reloaded."
+    else
+        systemctl stop "wg-quick@$wg_iface"
+        echo "No config file found to reload."
     fi
 }
 
