@@ -77,7 +77,8 @@ reload_wg_config() {
         echo "WireGuard config reloaded."
     else
         systemctl stop "wg-quick@$wg_iface"
-        echo "No config file found to reload."
+        systemctl disable "wg-quick@$wg_iface"
+        echo "No config file found to reload. Stopped and disabled interface."
     fi
 }
 
