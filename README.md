@@ -1,3 +1,5 @@
+# ** There is an issue with loading the new config, without service restart. Didn't have time to figure it out, for some reason the script on the main branch reloads the config.**
+
 # Absolutely Easy WireGuard
 
 A simple Bash script to configure and manage a WireGuard server interface for point-to-point VPN tunnels. Each peer can only access the server; peers cannot communicate with each other or use the server as a gateway for other traffic.
